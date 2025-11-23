@@ -8,6 +8,7 @@ import { UserRegistrationModal } from './components/UserRegistrationModal';
 import { getUserData, hasReachedLimit, incrementUsageCount, saveUserData } from './lib/userUtils';
 import { AdminDashboard } from './components/AdminDashboard';
 import { registerLead, checkLeadAccess, incrementLeadUsage, supabase } from './lib/supabase';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 type ActiveTab = 'text' | 'image' | 'image-edit' | 'video' | 'remix' | 'analysis';
 type OutputFormat = 'normal' | 'json';
@@ -130,8 +131,12 @@ const App: React.FC = () => {
     };
 
     if (isAdmin) {
-        console.log("Rendering AdminDashboard from App.tsx RE-ADDED");
-        return <AdminDashboard />;
+        console.log("Rendering AdminDashboard from App.tsx");
+        return (
+            <ErrorBoundary>
+                <AdminDashboard />
+            </ErrorBoundary>
+        );
     }
 
     const filteredAIModels = useMemo(() => AI_MODELS.filter(m => m.type === activeTab), [activeTab]);
