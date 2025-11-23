@@ -638,7 +638,7 @@ const App: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
+        <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30" style={{ backgroundImage: 'url(/bg-cyberpunk.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
 
             {/* Background Image */}
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-0"></div>
