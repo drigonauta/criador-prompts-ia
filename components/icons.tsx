@@ -95,7 +95,7 @@ export const PlusCircleIcon = ({ className }: IconProps) => (
 
 export const MagicWandIcon = ({ className }: IconProps) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 004.472-1.088.75.75 0 11.324 1.392A10.47 10.47 0 0118 16.5a10.5 10.5 0 01-10.5-10.5 10.47 10.47 0 011.088-4.472.75._75 0 01.819.162z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 004.472-1.088.75.75 0 11.324 1.392A10.47 10.47 0 0118 16.5a10.5 10.5 0 01-10.5-10.5 10.47 10.47 0 011.088-4.472.75.75 0 01.819.162z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.002 9.002 0 008.59-6.412A10.47 10.47 0 0118 16.5a10.5 10.5 0 01-10.5-10.5c0-1.85.467-3.579 1.257-5.092A9.002 9.002 0 003 12c0 4.97 4.03 9 9 9z" />
     </svg>
 );
@@ -103,5 +103,17 @@ export const MagicWandIcon = ({ className }: IconProps) => (
 export const ClipboardCheckIcon = ({ className }: IconProps) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+);
+
+export const LockIcon = ({ className }: IconProps) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+);
+
+export const RobotIcon = ({ className }: IconProps) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
     </svg>
 );

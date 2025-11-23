@@ -63,16 +63,20 @@ export const generatePromptFromText = async (topic: string, targetAI: string): P
 /**
  * Generates a descriptive prompt based on an uploaded image and an optional instruction, tailored for a specific AI.
  */
-export const generatePromptFromImage = async (imageFile: File, instruction: string, targetAI: string): Promise<string> => {
+export const generatePromptFromImage = async (imageFile: File | null, instruction: string, targetAI: string): Promise<string> => {
     try {
-        const imagePart = await fileToGenerativePart(imageFile);
+        let parts: any[] = [];
+        let textPrompt = '';
 
-        const instructionText = instruction.trim()
-            ? `\n\n**Modificação Importante:** Além de descrever a imagem, o prompt final DEVE incorporar a seguinte instrução do usuário: "${instruction}". O prompt gerado deve ser uma fusão da descrição da imagem com esta modificação.`
-            : `\n\nO objetivo é criar um prompt para recriar uma imagem semelhante.`;
+        if (imageFile) {
+            const imagePart = await fileToGenerativePart(imageFile);
+            parts.push(imagePart);
 
-        const textPart = {
-            text: `Analise esta imagem em detalhes extremos. Crie um prompt descritivo e poderoso para a IA de geração de imagem chamada "${targetAI}".
+            const instructionText = instruction.trim()
+                ? `\n\n**Modificação Importante:** Além de descrever a imagem, o prompt final DEVE incorporar a seguinte instrução do usuário: "${instruction}". O prompt gerado deve ser uma fusão da descrição da imagem com esta modificação.`
+                : `\n\nO objetivo é criar um prompt para recriar uma imagem semelhante.`;
+
+            textPrompt = `Analise esta imagem em detalhes extremos. Crie um prompt descritivo e poderoso para a IA de geração de imagem chamada "${targetAI}".
             ${instructionText}
             
             O prompt final deve ser uma única string de texto, otimizada para a sintaxe e as palavras-chave que funcionam melhor com "${targetAI}". Descreva, usando o formato preferido por esta IA:
@@ -84,12 +88,29 @@ export const generatePromptFromImage = async (imageFile: File, instruction: stri
             - **Detalhes específicos:** Texturas, reflexos, emoções.
             - **Parâmetros:** Inclua parâmetros específicos de "${targetAI}" se aplicável (ex: --ar 16:9, --v 6.0 para Midjourney).
             
-            O resultado deve ser apenas o prompt, sem nenhuma explicação ou texto adicional.`
-        };
+            O resultado deve ser apenas o prompt, sem nenhuma explicação ou texto adicional.`;
+        } else {
+            // No image provided, generate based on instruction only
+            if (!instruction.trim()) {
+                throw new Error("Por favor, forneça uma descrição para a imagem.");
+            }
+            textPrompt = `Você é um engenheiro de prompts especialista em IAs de geração de imagem (como Midjourney, DALL-E, Stable Diffusion).
+            Sua tarefa é criar um prompt visualmente rico e detalhado para a IA "${targetAI}", baseado APENAS na seguinte ideia do usuário: "${instruction}".
+            
+            O prompt deve ser otimizado para "${targetAI}" e descrever vividamente:
+            - **Assunto:** O que deve aparecer na imagem.
+            - **Estilo:** O estilo artístico (ex: foto realista, 3D, ilustração).
+            - **Ambiente/Iluminação:** Detalhes da cena.
+            - **Parâmetros:** Sintaxe específica da IA (se houver).
+
+            O resultado deve ser APENAS o prompt final, pronto para copiar e colar.`;
+        }
+
+        parts.push({ text: textPrompt });
 
         const response: GenerateContentResponse = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: { role: 'user', parts: [imagePart, textPart] },
+            contents: { role: 'user', parts: parts },
         });
 
         return response.text || '';
@@ -432,15 +453,16 @@ Sua resposta DEVE ser um objeto JSON com a seguinte estrutura: { "roteiro_narrac
             },
             config: {
                 systemInstruction,
-                temperature: 0.9,
+                temperature: 0.85,
                 responseMimeType: 'application/json',
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
-                        roteiro_narracao: { type: Type.STRING },
-                        instrucoes_remix: { type: Type.STRING },
+                        prova_de_analise: { type: Type.STRING },
+                        pontos_fortes: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        pontos_a_melhorar: { type: Type.ARRAY, items: { type: Type.STRING } },
                     },
-                    required: ['roteiro_narracao', 'instrucoes_remix'],
+                    required: ['prova_de_analise', 'pontos_fortes', 'pontos_a_melhorar'],
                 },
             },
         });
@@ -455,6 +477,7 @@ Sua resposta DEVE ser um objeto JSON com a seguinte estrutura: { "roteiro_narrac
 };
 
 export interface InitialAnalysis {
+    prova_de_analise: string;
     pontos_fortes: string[];
     pontos_a_melhorar: string[];
 }
@@ -486,6 +509,7 @@ Analise os screenshots fornecidos. Seja direto, use uma linguagem forte e aponte
 
 **Formato de Saída Obrigatório:**
 Sua resposta DEVE ser um objeto JSON com a seguinte estrutura:
+- "prova_de_analise" (string): Uma frase curta citando algo ESPECÍFICO que você leu na imagem (ex: "Vi que sua bio diz 'X'..." ou "No seu último post sobre 'Y'..."). Isso é crucial para provar que você analisou o perfil.
 - "pontos_fortes" (array de strings): 2-3 pontos que o perfil acerta, baseado nas imagens.
 - "pontos_a_melhorar" (array de strings): 2-3 pontos fracos ou erros comuns que você observa, de forma direta e incisiva.`;
 
@@ -501,10 +525,11 @@ Sua resposta DEVE ser um objeto JSON com a seguinte estrutura:
                 responseSchema: {
                     type: Type.OBJECT,
                     properties: {
+                        prova_de_analise: { type: Type.STRING },
                         pontos_fortes: { type: Type.ARRAY, items: { type: Type.STRING } },
                         pontos_a_melhorar: { type: Type.ARRAY, items: { type: Type.STRING } },
                     },
-                    required: ['pontos_fortes', 'pontos_a_melhorar'],
+                    required: ['prova_de_analise', 'pontos_fortes', 'pontos_a_melhorar'],
                 },
             },
         });

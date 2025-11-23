@@ -1,8 +1,13 @@
 
 import React, { useState, useEffect, useMemo, DragEvent } from 'react';
 import { generatePromptFromText, generatePromptFromImage, generatePromptFromVideoIdea, generateCaptionsAndHashtags, CaptionVariation, generateInfluencerPrompt, generateRemixScript, RemixScript, generateInitialProfileAnalysis, generateActionPlan, InitialAnalysis, ActionPlan, generateImageEditPrompt } from './lib/gemini';
+
 import { TextIcon, ImageIcon, VideoIcon, CopyIcon, CheckIcon, UploadIcon, SparklesIcon, LightbulbIcon, MegaphoneIcon, UserCircleIcon, RemixIcon, ChartBarIcon, ExternalLinkIcon, PlusCircleIcon, MagicWandIcon, ClipboardCheckIcon } from './components/icons';
 import { AI_MODELS, IDEA_SUGGESTIONS, DIALOGUE_LANGUAGES, SOCIAL_MEDIA_PLATFORMS, VIDEO_DURATIONS, ANALYSIS_GOALS } from './constants';
+import { UserRegistrationModal } from './components/UserRegistrationModal';
+import { getUserData, hasReachedLimit, incrementUsageCount, saveUserData } from './lib/userUtils';
+import { AdminDashboard } from './components/AdminDashboard';
+import { registerLead, checkLeadAccess, incrementLeadUsage, supabase } from './lib/supabase';
 
 type ActiveTab = 'text' | 'image' | 'image-edit' | 'video' | 'remix' | 'analysis';
 type OutputFormat = 'normal' | 'json';
@@ -46,8 +51,88 @@ const App: React.FC = () => {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [imageInstruction, setImageInstruction] = useState<string>('');
+    const [wantsImageUpload, setWantsImageUpload] = useState<boolean>(true);
     const [copiedIdentifier, setCopiedIdentifier] = useState<string | null>(null);
     const [isDragging, setIsDragging] = useState<boolean>(false);
+
+    // User Registration & Limits
+    const [isUserRegistered, setIsUserRegistered] = useState<boolean>(true); // Default true to avoid flash, checked in useEffect
+    const [showRegistrationModal, setShowRegistrationModal] = useState<boolean>(false);
+    const [isLimitReached, setIsLimitReached] = useState<boolean>(false);
+    const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+    useEffect(() => {
+        // Check for Admin Mode
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('admin') === 'true') {
+            console.log("Admin mode detected in App.tsx RE-ADDED");
+            setIsAdmin(true);
+            return;
+        }
+
+        // Check Local Registration
+        const userData = getUserData();
+        if (!userData) {
+            setIsUserRegistered(false);
+        } else {
+            // If we have local data, we could sync with Supabase here if needed
+            // For now, we rely on the initial registration
+        }
+    }, []);
+
+    const checkAccess = async (feature: string): Promise<boolean> => {
+        if (!isUserRegistered) {
+            setShowRegistrationModal(true);
+            return false;
+        }
+
+        // 1. Try Supabase Check (if configured)
+        const userData = getUserData();
+        if (supabase && userData?.whatsapp) {
+            const { allowed, limitReached } = await checkLeadAccess(userData.whatsapp, feature);
+            if (!allowed) {
+                if (limitReached) setIsLimitReached(true);
+                setShowRegistrationModal(true);
+                return false;
+            }
+            return true;
+        }
+
+        // 2. Fallback to LocalStorage
+        if (hasReachedLimit(feature)) {
+            setIsLimitReached(true);
+            setShowRegistrationModal(true);
+            return false;
+        }
+        return true;
+    };
+
+    const recordUsage = async (feature: string) => {
+        // 1. Local
+        incrementUsageCount(feature);
+
+        // 2. Supabase
+        const userData = getUserData();
+        if (supabase && userData?.whatsapp) {
+            await incrementLeadUsage(userData.whatsapp);
+        }
+    };
+
+    const handleRegistration = async (data: { name: string, whatsapp: string, email: string }) => {
+        saveUserData(data);
+        setIsUserRegistered(true);
+        setShowRegistrationModal(false);
+
+        // Sync to Supabase
+        if (supabase) {
+            await registerLead(data.name, data.whatsapp, data.email);
+        }
+    };
+
+    if (isAdmin) {
+        console.log("Rendering AdminDashboard from App.tsx RE-ADDED");
+        return <AdminDashboard />;
+    }
 
     const filteredAIModels = useMemo(() => AI_MODELS.filter(m => m.type === activeTab), [activeTab]);
     const [targetAI, setTargetAI] = useState<string>(filteredAIModels[0]?.id || '');
@@ -151,11 +236,14 @@ const App: React.FC = () => {
     const handleTextSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!inputText.trim() || isLoading) return;
+        if (!await checkAccess('text')) return;
+
         resetState();
         setIsLoading(true);
         try {
             const prompt = await generatePromptFromText(inputText, targetAI);
             setGeneratedPrompt(prompt);
+            await recordUsage('text');
         } catch (err: any) { setError(err.message || 'Ocorreu um erro desconhecido.'); }
         finally { setIsLoading(false); }
     };
@@ -222,12 +310,17 @@ const App: React.FC = () => {
 
     const handleImageSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!imageFile || isLoading) return;
+        if (isLoading) return;
+        if (wantsImageUpload && !imageFile) return;
+        if (!wantsImageUpload && !imageInstruction.trim()) return;
+        if (!await checkAccess('image')) return;
+
         resetState();
         setIsLoading(true);
         try {
-            const prompt = await generatePromptFromImage(imageFile, imageInstruction, targetAI);
+            const prompt = await generatePromptFromImage(wantsImageUpload ? imageFile : null, imageInstruction, targetAI);
             setGeneratedPrompt(prompt);
+            await recordUsage('image');
         } catch (err: any) { setError(err.message || 'Ocorreu um erro desconhecido.'); }
         finally { setIsLoading(false); }
     };
@@ -235,11 +328,14 @@ const App: React.FC = () => {
     const handleImageEditPromptSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editImageFile || !editImagePrompt.trim() || isLoading) return;
+        if (!await checkAccess('image-edit')) return;
+
         resetState();
         setIsLoading(true);
         try {
             const prompt = await generateImageEditPrompt(editImageFile, editImagePrompt);
             setGeneratedPrompt(prompt);
+            await recordUsage('image-edit');
         } catch (err: any) {
             setError(err.message || 'Ocorreu um erro ao gerar o prompt de edição.');
         } finally {
@@ -271,6 +367,8 @@ const App: React.FC = () => {
     const handleVideoSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!videoIdea.trim() || isLoading) return;
+        if (!await checkAccess('video')) return;
+
         resetState();
         setIsLoading(true);
         try {
@@ -285,6 +383,7 @@ const App: React.FC = () => {
             };
             const prompt = await generatePromptFromVideoIdea(videoIdea, targetAI, options);
             setGeneratedPrompt(prompt);
+            await recordUsage('video');
         } catch (err: any) { setError(err.message || 'Ocorreu um erro desconhecido.'); }
         finally { setIsLoading(false); }
     };
@@ -325,6 +424,7 @@ const App: React.FC = () => {
 
     const handleGenerateRemix = async () => {
         if (!remixVideoFile || isRemixLoading) return;
+        if (!await checkAccess('remix')) return;
 
         let influencerForRemix = finalInfluencerPrompt;
         if (remixNarrationOption === 'voice_only') {
@@ -340,6 +440,7 @@ const App: React.FC = () => {
         try {
             const script = await generateRemixScript(remixVideoFile, influencerForRemix, remixGoal);
             setGeneratedRemixScript(script);
+            await recordUsage('remix');
         } catch (err: any) {
             setRemixError(err.message || 'Ocorreu um erro desconhecido.');
         } finally {
@@ -349,11 +450,14 @@ const App: React.FC = () => {
 
     const handleInitialAnalysis = async () => {
         if (analysisScreenshots.length === 0 || isAnalysisLoading) return;
+        if (!await checkAccess('analysis')) return;
+
         resetState();
         setIsAnalysisLoading(true);
         try {
             const result = await generateInitialProfileAnalysis(analysisPlatform, analysisUsername, analysisGoal, analysisScreenshots);
             setInitialAnalysis(result);
+            await recordUsage('analysis');
         } catch (err: any) {
             setAnalysisError(err.message || 'Ocorreu um erro desconhecido.');
         } finally {
@@ -474,6 +578,7 @@ const App: React.FC = () => {
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-4">
             <h3 className="text-md font-semibold text-slate-200 flex items-center gap-2"><UserCircleIcon className="w-6 h-6 text-cyan-400" /> Estúdio de Influenciador</h3>
             <RadioPillGroup label={forRemix ? "Tipo de Narração:" : "Usar influenciador?"}>
+                {!forRemix && <RadioPill name="influencer" value="none" checked={influencerOption === 'none'} onChange={() => setInfluencerOption('none')} label="Não quero" />}
                 {forRemix && <RadioPill name="remix-narration" value="voice_only" checked={remixNarrationOption === 'voice_only'} onChange={() => setRemixNarrationOption('voice_only')} label="Somente Voz" />}
                 <RadioPill name={forRemix ? "remix-narration" : "influencer"} value={forRemix ? "create_influencer" : "create"} checked={forRemix ? remixNarrationOption === 'create_influencer' : influencerOption === 'create'} onChange={() => forRemix ? setRemixNarrationOption('create_influencer') : setInfluencerOption('create')} label="Criar Novo" />
                 <RadioPill name={forRemix ? "remix-narration" : "influencer"} value={forRemix ? "use_influencer" : "existing"} checked={forRemix ? remixNarrationOption === 'use_influencer' : influencerOption === 'existing'} onChange={() => forRemix ? setRemixNarrationOption('use_influencer') : setInfluencerOption('existing')} label="Usar Existente" />
@@ -525,20 +630,29 @@ const App: React.FC = () => {
     const currentSocialPlatform = SOCIAL_MEDIA_PLATFORMS.find(p => p.id === socialPlatform);
 
     return (
-        <div className="min-h-screen bg-slate-900 flex flex-col items-center p-4 sm:p-6 lg:p-8 font-sans">
-            <main className="w-full max-w-2xl mx-auto">
+        <div className="min-h-screen bg-slate-900 text-slate-200 selection:bg-cyan-500/30 font-sans" style={{ backgroundImage: 'url(/bg-cyberpunk.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-0"></div>
+            <div className="fixed inset-0 bg-gradient-to-b from-slate-900/80 via-transparent to-slate-900/80 z-0 pointer-events-none"></div>
+
+            <main className="relative z-10 w-full max-w-2xl mx-auto p-4 sm:p-6 flex flex-col min-h-screen">
                 <header className="text-center mb-8">
                     <h1 className="text-4xl sm:text-5xl font-bold gradient-text">Criador de Prompts IA</h1>
                     <p className="mt-3 text-slate-400 max-w-md mx-auto">Seu estúdio de produção de conteúdo de ponta a ponta.</p>
                 </header>
 
-                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-2 mb-6 flex gap-1 sm:gap-2">
+                <UserRegistrationModal
+                    isOpen={showRegistrationModal}
+                    onRegister={(data) => handleRegistration(data)}
+                    isLimitReached={isLimitReached}
+                />
+
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-2 mb-6 flex flex-wrap justify-center gap-1 sm:gap-2">
                     <TabButton tab="text" label="Texto" icon={<TextIcon className="w-5 h-5" />} />
                     <TabButton tab="image" label="Imagem" icon={<ImageIcon className="w-5 h-5" />} />
                     <TabButton tab="image-edit" label="Prompt de Edição" icon={<MagicWandIcon className="w-5 h-5" />} />
                     <TabButton tab="video" label="Vídeo" icon={<VideoIcon className="w-5 h-5" />} />
                     <TabButton tab="remix" label="Remix" icon={<RemixIcon className="w-5 h-5" />} />
-                    <TabButton tab="analysis" label="Análise" icon={<ChartBarIcon className="w-5 h-5" />} />
+                    <TabButton tab="analysis" label="IA Analisa Minha Rede Social?" icon={<ChartBarIcon className="w-5 h-5" />} />
                 </div>
 
                 <div className="space-y-6">
@@ -595,7 +709,38 @@ const App: React.FC = () => {
 
                     <div className="min-h-[150px]">
                         {activeTab === 'text' && (<form onSubmit={handleTextSubmit} className="space-y-2"><div className="flex justify-between items-center"><label htmlFor="text-input" className="block text-sm font-medium text-slate-300">Descreva o assunto ou tema:</label><IdeaButton /></div><textarea id="text-input" value={inputText} onChange={(e) => setInputText(e.target.value)} placeholder="Ex: um logo para uma cafeteria moderna..." className="w-full h-32 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500 transition" disabled={isLoading} aria-label="Descreva o assunto ou tema" /><button type="submit" disabled={isLoading || !inputText.trim()} className="w-full flex items-center justify-center gap-2 bg-cyan-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-cyan-700 disabled:bg-slate-600 transition-all !mt-4"><SparklesIcon className="w-5 h-5" />{isLoading ? 'Gerando...' : 'Gerar Prompt'}</button></form>)}
-                        {activeTab === 'image' && (<form onSubmit={handleImageSubmit} className="space-y-4"><label htmlFor="image-upload" onDragOver={(e) => handleDragEvents(e, true)} onDragLeave={(e) => handleDragEvents(e, false)} onDrop={handleDrop} className={`relative flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDragging ? 'border-cyan-400 bg-slate-700/50' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/50'}`}>{imagePreview ? <img src={imagePreview} alt="Pré-visualização" className="object-contain h-full w-full rounded-lg p-2" /> : <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center"><UploadIcon className="w-10 h-10 mb-3 text-slate-500" /><p className="mb-2 text-sm text-slate-400"><span className="font-semibold">Clique para enviar</span> ou arraste e solte</p><p className="text-xs text-slate-500">PNG, JPG, GIF ou WEBP</p></div>}<input id="image-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null, 'image')} disabled={isLoading} /></label><div className="space-y-2"><div className="flex justify-between items-center"><label htmlFor="image-instruction" className="block text-sm font-medium text-slate-300">O que você quer mudar ou adicionar? (Opcional)</label><IdeaButton /></div><textarea id="image-instruction" value={imageInstruction} onChange={(e) => setImageInstruction(e.target.value)} placeholder="Ex: me transforme em um astronauta..." className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500 transition" disabled={isLoading} aria-label="Instruções para modificar a imagem" /></div><button type="submit" disabled={isLoading || !imageFile} className="w-full flex items-center justify-center gap-2 bg-cyan-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-cyan-700 disabled:bg-slate-600 transition-all"><SparklesIcon className="w-5 h-5" />{isLoading ? 'Gerando Prompt...' : 'Gerar Prompt de Imagem'}</button></form>)}
+                        {activeTab === 'image' && (
+                            <form onSubmit={handleImageSubmit} className="space-y-4">
+                                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 mb-4">
+                                    <label className="block text-sm font-medium text-slate-300 mb-2">Quer subir uma foto de referência?</label>
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" checked={wantsImageUpload} onChange={() => setWantsImageUpload(true)} className="text-cyan-500 focus:ring-cyan-500" />
+                                            <span className="text-slate-300">Sim</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="radio" checked={!wantsImageUpload} onChange={() => setWantsImageUpload(false)} className="text-cyan-500 focus:ring-cyan-500" />
+                                            <span className="text-slate-300">Não, apenas descrever</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {wantsImageUpload && (
+                                    <label htmlFor="image-upload" onDragOver={(e) => handleDragEvents(e, true)} onDragLeave={(e) => handleDragEvents(e, false)} onDrop={handleDrop} className={`relative flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDragging ? 'border-cyan-400 bg-slate-700/50' : 'border-slate-600 hover:border-slate-500 hover:bg-slate-800/50'}`}>{imagePreview ? <img src={imagePreview} alt="Pré-visualização" className="object-contain h-full w-full rounded-lg p-2" /> : <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center"><UploadIcon className="w-10 h-10 mb-3 text-slate-500" /><p className="mb-2 text-sm text-slate-400"><span className="font-semibold">Clique para enviar</span> ou arraste e solte</p><p className="text-xs text-slate-500">PNG, JPG, GIF ou WEBP</p></div>}<input id="image-upload" type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null, 'image')} disabled={isLoading} /></label>
+                                )}
+
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center">
+                                        <label htmlFor="image-instruction" className="block text-sm font-medium text-slate-300">
+                                            {wantsImageUpload ? "O que você quer mudar ou adicionar? (Opcional)" : "Descreva a imagem que você quer criar:"}
+                                        </label>
+                                        <IdeaButton />
+                                    </div>
+                                    <textarea id="image-instruction" value={imageInstruction} onChange={(e) => setImageInstruction(e.target.value)} placeholder={wantsImageUpload ? "Ex: me transforme em um astronauta..." : "Ex: um gato astronauta voando no espaço sideral..."} className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500 transition" disabled={isLoading} aria-label="Instruções para a imagem" />
+                                </div>
+                                <button type="submit" disabled={isLoading || (wantsImageUpload && !imageFile) || (!wantsImageUpload && !imageInstruction.trim())} className="w-full flex items-center justify-center gap-2 bg-cyan-600 text-white font-semibold py-3 px-4 rounded-md hover:bg-cyan-700 disabled:bg-slate-600 transition-all"><SparklesIcon className="w-5 h-5" />{isLoading ? 'Gerando Prompt...' : 'Gerar Prompt de Imagem'}</button>
+                            </form>
+                        )}
                         {activeTab === 'image-edit' && (
                             <form onSubmit={handleImageEditPromptSubmit} className="space-y-4">
                                 <div className="space-y-2">

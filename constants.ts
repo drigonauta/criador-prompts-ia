@@ -60,6 +60,13 @@ export const AI_MODELS: AIModel[] = [
         url: 'https://aistudio.google.com/app/imagefx'
     },
     {
+        id: 'nano-banana',
+        name: 'Nano Banana',
+        type: 'image',
+        description: 'IA especializada em geração de imagens criativas e detalhadas.',
+        url: 'https://nanobanana.com/' // Placeholder URL
+    },
+    {
         id: 'stable-diffusion',
         name: 'Stable Diffusion',
         type: 'image',
@@ -68,11 +75,11 @@ export const AI_MODELS: AIModel[] = [
     },
     // Image Edit Models
     {
-        id: 'google-banana-edit',
-        name: 'Google "Banana" (Editar)',
+        id: 'nano-banana-edit',
+        name: 'Nano Banana (Editar)',
         type: 'image-edit',
         description: 'Edita uma imagem existente com base em um prompt de texto.',
-        url: 'https://aistudio.google.com/app/imagefx'
+        url: 'https://nanobanana.com/' // Placeholder URL
     },
     {
         id: 'adobe-firefly',
