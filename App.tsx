@@ -274,6 +274,7 @@ const App: React.FC = () => {
                 case 'influencer':
                     setInfluencerImageFile(file);
                     setInfluencerImagePreview(result);
+                    // Only auto-generate for existing influencer mode
                     if (influencerOption === 'existing' || remixNarrationOption === 'use_influencer') {
                         handleGenerateInfluencerFromImage(file);
                     }
@@ -573,6 +574,92 @@ const App: React.FC = () => {
         </label>
     );
 
+    // JSON Character Sheet Display Component
+    const CharacterSheetDisplay: React.FC<{ jsonString: string }> = ({ jsonString }) => {
+        const [isExpanded, setIsExpanded] = useState(false);
+
+        let parsedData: any = null;
+        let isValidJSON = false;
+        let keywords = '';
+
+        try {
+            parsedData = JSON.parse(jsonString);
+            isValidJSON = true;
+            keywords = parsedData.prompt_keywords || '';
+        } catch {
+            // Not valid JSON, treat as plain text
+            isValidJSON = false;
+        }
+
+        if (!isValidJSON) {
+            // Fallback: display as plain text
+            return (
+                <div className="bg-slate-900/70 p-3 rounded-md text-sm text-slate-300 border border-cyan-500/30 space-y-2">
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-slate-400">Character Sheet (Texto)</span>
+                        <button
+                            onClick={() => handleCopyToClipboard(jsonString, 'character-sheet')}
+                            className="text-xs px-2 py-1 bg-cyan-600/20 text-cyan-400 rounded hover:bg-cyan-600/40 transition-colors"
+                        >
+                            {copiedIdentifier === 'character-sheet' ? '✓ Copiado' : 'Copiar'}
+                        </button>
+                    </div>
+                    <p className="whitespace-pre-wrap">{jsonString}</p>
+                </div>
+            );
+        }
+
+        return (
+            <div className="bg-slate-900/70 p-4 rounded-md text-sm text-slate-300 border border-cyan-500/30 space-y-3">
+                <div className="flex justify-between items-center">
+                    <h4 className="text-cyan-400 font-semibold flex items-center gap-2">
+                        <UserCircleIcon className="w-5 h-5" />
+                        {parsedData.character_name || 'Character Sheet'}
+                    </h4>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => handleCopyToClipboard(keywords, 'keywords')}
+                            className="text-xs px-3 py-1 bg-green-600/20 text-green-400 rounded hover:bg-green-600/40 transition-colors"
+                            title="Copiar apenas as keywords para uso rápido"
+                        >
+                            {copiedIdentifier === 'keywords' ? '✓ Keywords' : 'Copiar Keywords'}
+                        </button>
+                        <button
+                            onClick={() => handleCopyToClipboard(jsonString, 'json-full')}
+                            className="text-xs px-3 py-1 bg-cyan-600/20 text-cyan-400 rounded hover:bg-cyan-600/40 transition-colors"
+                        >
+                            {copiedIdentifier === 'json-full' ? '✓ JSON' : 'Copiar JSON'}
+                        </button>
+                    </div>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                    <div>
+                        <span className="text-slate-500">Aparência:</span>
+                        <span className="ml-2">{parsedData.physical_appearance?.hair?.color}, {parsedData.physical_appearance?.face?.eyes?.color} eyes, {parsedData.physical_appearance?.body?.build}</span>
+                    </div>
+                    <div>
+                        <span className="text-slate-500">Estilo:</span>
+                        <span className="ml-2">{parsedData.style?.clothing?.primary}</span>
+                    </div>
+                </div>
+
+                <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                >
+                    {isExpanded ? '▼ Ver Menos' : '▶ Ver JSON Completo'}
+                </button>
+
+                {isExpanded && (
+                    <pre className="bg-slate-950/50 p-3 rounded text-xs overflow-x-auto border border-slate-700">
+                        {JSON.stringify(parsedData, null, 2)}
+                    </pre>
+                )}
+            </div>
+        );
+    };
+
     const InfluencerStudio = ({ forRemix = false }) => (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-4">
             <h3 className="text-md font-semibold text-slate-200 flex items-center gap-2"><UserCircleIcon className="w-6 h-6 text-cyan-400" /> Estúdio de Influenciador</h3>
@@ -587,7 +674,13 @@ const App: React.FC = () => {
                 <div className="space-y-4 pt-2 animate-fade-in">
                     <div className="space-y-2">
                         <label htmlFor="influencer-desc" className="block text-sm font-medium text-slate-300">1. Descreva seu influenciador:</label>
-                        <textarea id="influencer-desc" value={influencerDescription} onChange={(e) => setInfluencerDescription(e.target.value)} placeholder="Ex: mulher jovem, cabelo rosa neon, estilo cyberpunk, jaqueta de couro preta, olhos azuis brilhantes" className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500" />
+                        <textarea
+                            id="influencer-desc"
+                            value={influencerDescription}
+                            onChange={(e) => setInfluencerDescription(e.target.value)}
+                            placeholder="Ex: mulher jovem, cabelo rosa neon, estilo cyberpunk, jaqueta de couro preta, olhos azuis brilhantes"
+                            className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500"
+                        />
                     </div>
                     <div className="space-y-2">
                         <label htmlFor="influencer-img-create" className="block text-sm font-medium text-slate-300">2. (Opcional) Envie uma imagem de referência de ESTILO:</label>
@@ -597,7 +690,7 @@ const App: React.FC = () => {
                         <SparklesIcon className="w-5 h-5" /> {isInfluencerLoading ? 'Criando Personagem...' : '3. Gerar Prompt do Influenciador'}
                     </button>
                     {influencerError && <p className="text-red-400 text-sm">{influencerError}</p>}
-                    {generatedInfluencerPrompt && <div className="bg-slate-900/70 p-3 rounded-md text-sm text-slate-300 border border-cyan-500/30">{generatedInfluencerPrompt}</div>}
+                    {generatedInfluencerPrompt && <CharacterSheetDisplay jsonString={generatedInfluencerPrompt} />}
                 </div>
             )}
             {(influencerOption === 'existing' || remixNarrationOption === 'use_influencer') && (
@@ -617,7 +710,7 @@ const App: React.FC = () => {
                             <input id="influencer-img-existing" type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null, 'influencer')} className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100" />
                             {isInfluencerLoading && <p className="text-cyan-400 text-sm">Analisando imagem e criando Character Sheet...</p>}
                             {influencerError && <p className="text-red-400 text-sm">{influencerError}</p>}
-                            {existingInfluencerPrompt && <div className="bg-slate-900/70 p-3 rounded-md text-sm text-slate-300 border border-cyan-500/30">{existingInfluencerPrompt}</div>}
+                            {existingInfluencerPrompt && <CharacterSheetDisplay jsonString={existingInfluencerPrompt} />}
                         </div>
                     )}
                 </div>

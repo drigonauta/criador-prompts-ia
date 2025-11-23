@@ -364,20 +364,76 @@ Cada objeto no array deve ter a seguinte estrutura:
 };
 
 /**
- * Generates a detailed character sheet for a digital influencer.
+ * Generates a detailed JSON Character Sheet for a digital influencer.
+ * Returns a structured JSON with physical appearance, style, personality, and scene context.
  */
 export const generateInfluencerPrompt = async (description: string, imageFile?: File): Promise<string> => {
     try {
-        const systemInstruction = `Você é um "Character Designer" de elite para IAs generativas. Sua tarefa é criar um "Character Sheet" (ficha de personagem) extremamente detalhado e reutilizável. O resultado deve ser um único parágrafo denso de palavras-chave e frases curtas, separadas por vírgulas, robusto o suficiente para garantir a consistência do personagem em diferentes cenas e prompts.
+        const systemInstruction = `Você é um "Character Designer" de elite especializado em criar Character Sheets JSON estruturados para IAs generativas de vídeo e imagem.
 
-O "Character Sheet" deve definir imutavelmente:
-- **Rosto e Expressão:** Estrutura facial, formato e cor dos olhos, nariz, boca, expressão padrão.
-- **Cabelo:** Cor, estilo, comprimento e textura.
-- **Corpo:** Tipo físico, altura aproximada.
-- **Estilo de Vestimenta:** Guarda-roupa principal (ex: cyberpunk com jaquetas de neon, streetwear minimalista, fantasia élfica).
-- **Detalhes Únicos:** Tatuagens, cicatrizes, acessórios recorrentes (ex: óculos, piercings, colares).
+Sua tarefa é criar um JSON COMPLETO e DETALHADO que garanta a MÁXIMA CONSISTÊNCIA do personagem em diferentes cenas e prompts.
 
-Se uma imagem for fornecida, sua análise dela é a prioridade máxima. Se apenas texto for fornecido, baseie-se nele. O prompt final deve ser uma obra-prima de concisão e densidade de informação, pronto para ser copiado e colado. Não adicione nenhuma explicação, apenas o "Character Sheet".`;
+ESTRUTURA OBRIGATÓRIA DO JSON:
+{
+  "character_name": "Nome criativo do personagem",
+  "physical_appearance": {
+    "face": {
+      "structure": "formato do rosto (oval, angular, redondo, quadrado)",
+      "eyes": {
+        "color": "cor exata dos olhos",
+        "shape": "formato (amendoados, redondos, felinos)",
+        "details": "detalhes únicos (cílios longos, olhar intenso, sobrancelhas marcadas)"
+      },
+      "nose": "tipo de nariz (reto, arrebitado, aquilino)",
+      "mouth": "descrição da boca (lábios carnudos, sorriso largo, boca pequena)",
+      "skin": {
+        "tone": "tom de pele (clara, morena, negra, asiática)",
+        "texture": "textura (lisa, sardas, tatuagens faciais)"
+      }
+    },
+    "hair": {
+      "color": "cor EXATA do cabelo (rosa neon, preto azulado, loiro platinado)",
+      "style": "estilo (liso, cacheado, moicano, trançado)",
+      "length": "comprimento (curto, médio, longo até a cintura)"
+    },
+    "body": {
+      "build": "tipo físico (atlético, magro, curvilíneo, musculoso)",
+      "height": "altura relativa (alto, médio, baixo)",
+      "posture": "postura característica (confiante, relaxado, elegante)"
+    }
+  },
+  "style": {
+    "clothing": {
+      "primary": "peça principal de roupa (jaqueta de couro cyberpunk, moletom streetwear)",
+      "colors": "paleta de cores dominante (rosa neon, preto, prata)",
+      "accessories": "acessórios recorrentes (óculos cromados, corrente, brincos LED)"
+    },
+    "unique_features": [
+      "tatuagem geométrica na bochecha esquerda",
+      "prótese mecânica no braço direito",
+      "cicatriz característica"
+    ]
+  },
+  "personality": {
+    "energy": "nível de energia (alta energia, calmo, misterioso)",
+    "voice_tone": "tom de voz (confiante, brincalhão, autoritário)",
+    "gestures": "gestos característicos (mãos expressivas, movimentos mínimos)"
+  },
+  "scene_context": {
+    "default_environment": "ambiente padrão (rua cyberpunk com neon, estúdio minimalista)",
+    "lighting": "iluminação característica (luz lateral dramática, luz natural suave)",
+    "camera_angle": "ângulo de câmera preferido (levemente baixo, nível dos olhos)"
+  },
+  "prompt_keywords": "versão compacta em keywords separadas por vírgula para uso rápido"
+}
+
+REGRAS CRÍTICAS:
+1. Se uma IMAGEM for fornecida, analise-a PROFUNDAMENTE e baseie TODO o JSON nela
+2. Se apenas TEXTO for fornecido, crie um personagem ÚNICO e MEMORÁVEL
+3. Seja EXTREMAMENTE ESPECÍFICO em cada campo
+4. O campo "prompt_keywords" deve ser uma versão condensada de TUDO, separada por vírgulas
+5. Retorne APENAS o JSON válido, sem explicações adicionais
+6. Use cores, texturas e detalhes ÚNICOS para diferenciar o personagem`;
 
         const parts: ({ text: string } | { inlineData: { data: string; mimeType: string; } })[] = [{ text: `Instrução do usuário: "${description}"` }];
 
@@ -395,10 +451,26 @@ Se uma imagem for fornecida, sua análise dela é a prioridade máxima. Se apena
             }
         });
 
-        return response.text || '';
+        const rawText = response.text || '';
+
+        // Try to extract JSON from response (in case model adds markdown formatting)
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            // Validate JSON
+            try {
+                JSON.parse(jsonMatch[0]);
+                return jsonMatch[0];
+            } catch {
+                // If JSON is invalid, return raw text as fallback
+                console.warn("Generated JSON is invalid, returning raw text");
+                return rawText;
+            }
+        }
+
+        return rawText;
     } catch (error) {
         console.error("Error generating influencer prompt:", error);
-        throw new Error("Não foi possível gerar o prompt do influenciador. Verifique o console para mais detalhes.");
+        throw new Error("Não foi possível gerar o Character Sheet. Verifique o console para mais detalhes.");
     }
 };
 
