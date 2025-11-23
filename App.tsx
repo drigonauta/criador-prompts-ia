@@ -160,7 +160,6 @@ const App: React.FC = () => {
     const [influencerDescription, setInfluencerDescription] = useState('');
     const [influencerImageFile, setInfluencerImageFile] = useState<File | null>(null);
     const [influencerImagePreview, setInfluencerImagePreview] = useState<string | null>(null);
-    void influencerImagePreview; // Silence unused warning
     const [existingInfluencerPrompt, setExistingInfluencerPrompt] = useState('');
     const [generatedInfluencerPrompt, setGeneratedInfluencerPrompt] = useState('');
     const [isInfluencerLoading, setIsInfluencerLoading] = useState(false);
@@ -677,14 +676,36 @@ const App: React.FC = () => {
                         <textarea
                             id="influencer-desc"
                             value={influencerDescription}
-                            onChange={(e) => setInfluencerDescription(e.target.value)}
+                            onChange={(e) => {
+                                e.persist?.(); // Ensure event is not pooled (React 16 compatibility)
+                                const newValue = e.target.value;
+                                setInfluencerDescription(newValue);
+                            }}
                             placeholder="Ex: mulher jovem, cabelo rosa neon, estilo cyberpunk, jaqueta de couro preta, olhos azuis brilhantes"
                             className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500"
                         />
                     </div>
                     <div className="space-y-2">
                         <label htmlFor="influencer-img-create" className="block text-sm font-medium text-slate-300">2. (Opcional) Envie uma imagem de referência de ESTILO:</label>
-                        <input id="influencer-img-create" type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null, 'influencer')} className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100" />
+                        <input
+                            id="influencer-img-create"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                    handleFileChange(file, 'influencer');
+                                }
+                            }}
+                            className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100"
+                        />
+                        {influencerImagePreview && (
+                            <img
+                                src={influencerImagePreview}
+                                alt="Preview da imagem de referência"
+                                className="w-full h-32 object-cover rounded-lg mt-2 border border-slate-700"
+                            />
+                        )}
                     </div>
                     <button type="button" onClick={handleGenerateInfluencer} disabled={isInfluencerLoading || !influencerDescription.trim()} className="w-full flex items-center justify-center gap-2 bg-cyan-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-cyan-700 disabled:bg-slate-600 transition-all">
                         <SparklesIcon className="w-5 h-5" /> {isInfluencerLoading ? 'Criando Personagem...' : '3. Gerar Prompt do Influenciador'}
