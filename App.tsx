@@ -659,7 +659,7 @@ const App: React.FC = () => {
         );
     };
 
-    const InfluencerStudio = ({ forRemix = false }) => (
+    const InfluencerStudio = useMemo(() => ({ forRemix = false }: { forRemix?: boolean }) => (
         <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-4">
             <h3 className="text-md font-semibold text-slate-200 flex items-center gap-2"><UserCircleIcon className="w-6 h-6 text-cyan-400" /> Estúdio de Influenciador</h3>
             <RadioPillGroup label={forRemix ? "Tipo de Narração:" : "Usar influenciador?"}>
@@ -737,7 +737,7 @@ const App: React.FC = () => {
                 </div>
             )}
         </div>
-    );
+    ), [influencerOption, remixNarrationOption, influencerDescription, influencerImagePreview, isInfluencerLoading, influencerError, generatedInfluencerPrompt, existingInfluencerMethod, existingInfluencerPrompt]);
 
     const currentAIModel = AI_MODELS.find(m => m.id === targetAI);
     const currentSocialPlatform = SOCIAL_MEDIA_PLATFORMS.find(p => p.id === socialPlatform);
