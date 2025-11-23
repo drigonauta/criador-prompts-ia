@@ -41,6 +41,228 @@ const fallbackCopyTextToClipboard = (text: string, onSuccess: () => void, onErro
     document.body.removeChild(textArea);
 };
 
+interface InfluencerStudioProps {
+    forRemix?: boolean;
+    influencerOption: string;
+    setInfluencerOption: (opt: any) => void;
+    remixNarrationOption: string;
+    setRemixNarrationOption: (opt: any) => void;
+    influencerDescription: string;
+    setInfluencerDescription: (desc: string) => void;
+    handleFileChange: (file: File, type: 'influencer') => void;
+    influencerImagePreview: string | null;
+    handleGenerateInfluencer: () => void;
+    isInfluencerLoading: boolean;
+    influencerError: string | null;
+    generatedInfluencerPrompt: string;
+    existingInfluencerMethod: string;
+    setExistingInfluencerMethod: (method: any) => void;
+    existingInfluencerPrompt: string;
+    setExistingInfluencerPrompt: (prompt: string) => void;
+    onCopy: (text: string, id: string) => void;
+    copiedIdentifier: string | null;
+}
+
+const RadioPillGroup: React.FC<{ children: React.ReactNode; label: string }> = ({ children, label }) => (
+    <div>
+        <label className="block text-sm font-medium text-slate-300 mb-2">{label}</label>
+        <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-700 rounded-lg p-1">{children}</div>
+    </div>
+);
+
+const RadioPill: React.FC<{ name: string; value: any; checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement> | (() => void)) => void; label: string; }> = ({ name, value, checked, onChange, label }) => (
+    <label className={`flex-1 text-center cursor-pointer px-3 py-1.5 text-sm rounded-md transition-colors ${checked ? 'bg-slate-700 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'}`}>
+        <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
+        {label}
+    </label>
+);
+
+const CharacterSheetDisplay: React.FC<{ jsonString: string; onCopy: (text: string, id: string) => void; copiedIdentifier: string | null }> = ({ jsonString, onCopy, copiedIdentifier }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    let parsedData: any = null;
+    let isValidJSON = false;
+    let keywords = '';
+
+    try {
+        parsedData = JSON.parse(jsonString);
+        isValidJSON = true;
+        keywords = parsedData.prompt_keywords || '';
+    } catch {
+        isValidJSON = false;
+    }
+
+    if (!isValidJSON) {
+        return (
+            <div className="bg-slate-900/70 p-3 rounded-md text-sm text-slate-300 border border-cyan-500/30 space-y-2">
+                <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400">Character Sheet (Texto)</span>
+                    <button
+                        onClick={() => onCopy(jsonString, 'character-sheet')}
+                        className="text-xs px-2 py-1 bg-cyan-600/20 text-cyan-400 rounded hover:bg-cyan-600/40 transition-colors"
+                    >
+                        {copiedIdentifier === 'character-sheet' ? '✓ Copiado' : 'Copiar'}
+                    </button>
+                </div>
+                <p className="whitespace-pre-wrap">{jsonString}</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="bg-slate-900/70 p-4 rounded-md text-sm text-slate-300 border border-cyan-500/30 space-y-3">
+            <div className="flex justify-between items-center">
+                <h4 className="text-cyan-400 font-semibold flex items-center gap-2">
+                    <UserCircleIcon className="w-5 h-5" />
+                    {parsedData.character_name || 'Character Sheet'}
+                </h4>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => onCopy(keywords, 'keywords')}
+                        className="text-xs px-3 py-1 bg-green-600/20 text-green-400 rounded hover:bg-green-600/40 transition-colors"
+                        title="Copiar apenas as keywords para uso rápido"
+                    >
+                        {copiedIdentifier === 'keywords' ? '✓ Keywords' : 'Copiar Keywords'}
+                    </button>
+                    <button
+                        onClick={() => onCopy(jsonString, 'json-full')}
+                        className="text-xs px-3 py-1 bg-cyan-600/20 text-cyan-400 rounded hover:bg-cyan-600/40 transition-colors"
+                    >
+                        {copiedIdentifier === 'json-full' ? '✓ JSON' : 'Copiar JSON'}
+                    </button>
+                </div>
+            </div>
+
+            <div className="space-y-2 text-xs">
+                <div>
+                    <span className="text-slate-500">Aparência:</span>
+                    <span className="ml-2">{parsedData.physical_appearance?.hair?.color}, {parsedData.physical_appearance?.face?.eyes?.color} eyes, {parsedData.physical_appearance?.body?.build}</span>
+                </div>
+                <div>
+                    <span className="text-slate-500">Estilo:</span>
+                    <span className="ml-2">{parsedData.style?.clothing?.primary}</span>
+                </div>
+            </div>
+
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+                {isExpanded ? '▼ Ver Menos' : '▶ Ver JSON Completo'}
+            </button>
+
+            {isExpanded && (
+                <pre className="bg-slate-950/50 p-3 rounded text-xs overflow-x-auto border border-slate-700">
+                    {JSON.stringify(parsedData, null, 2)}
+                </pre>
+            )}
+        </div>
+    );
+};
+
+const InfluencerStudio: React.FC<InfluencerStudioProps> = ({
+    forRemix = false,
+    influencerOption,
+    setInfluencerOption,
+    remixNarrationOption,
+    setRemixNarrationOption,
+    influencerDescription,
+    setInfluencerDescription,
+    handleFileChange,
+    influencerImagePreview,
+    handleGenerateInfluencer,
+    isInfluencerLoading,
+    influencerError,
+    generatedInfluencerPrompt,
+    existingInfluencerMethod,
+    setExistingInfluencerMethod,
+    existingInfluencerPrompt,
+    setExistingInfluencerPrompt,
+    onCopy,
+    copiedIdentifier
+}) => (
+    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-4">
+        <h3 className="text-md font-semibold text-slate-200 flex items-center gap-2"><UserCircleIcon className="w-6 h-6 text-cyan-400" /> Estúdio de Influenciador</h3>
+        <RadioPillGroup label={forRemix ? "Tipo de Narração:" : "Usar influenciador?"}>
+            {!forRemix && <RadioPill name="influencer" value="none" checked={influencerOption === 'none'} onChange={() => setInfluencerOption('none')} label="Não quero" />}
+            {forRemix && <RadioPill name="remix-narration" value="voice_only" checked={remixNarrationOption === 'voice_only'} onChange={() => setRemixNarrationOption('voice_only')} label="Somente Voz" />}
+            <RadioPill name={forRemix ? "remix-narration" : "influencer"} value={forRemix ? "create_influencer" : "create"} checked={forRemix ? remixNarrationOption === 'create_influencer' : influencerOption === 'create'} onChange={() => forRemix ? setRemixNarrationOption('create_influencer') : setInfluencerOption('create')} label="Criar Novo" />
+            <RadioPill name={forRemix ? "remix-narration" : "influencer"} value={forRemix ? "use_influencer" : "existing"} checked={forRemix ? remixNarrationOption === 'use_influencer' : influencerOption === 'existing'} onChange={() => forRemix ? setRemixNarrationOption('use_influencer') : setInfluencerOption('existing')} label="Usar Existente" />
+        </RadioPillGroup>
+
+        {(influencerOption === 'create' || remixNarrationOption === 'create_influencer') && (
+            <div className="space-y-4 pt-2 animate-fade-in">
+                <div className="space-y-2">
+                    <label htmlFor="influencer-desc" className="block text-sm font-medium text-slate-300">1. Descreva seu influenciador:</label>
+                    <textarea
+                        id="influencer-desc"
+                        value={influencerDescription}
+                        onChange={(e) => {
+                            setInfluencerDescription(e.target.value);
+                        }}
+                        placeholder="Ex: mulher jovem, cabelo rosa neon, estilo cyberpunk, jaqueta de couro preta, olhos azuis brilhantes"
+                        className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                </div>
+                <div className="space-y-2">
+                    <label htmlFor="influencer-img-create" className="block text-sm font-medium text-slate-300">2. (Opcional) Envie uma imagem de referência de ESTILO:</label>
+                    <input
+                        id="influencer-img-create"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                                handleFileChange(file, 'influencer');
+                            }
+                        }}
+                        className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100"
+                    />
+                    {influencerImagePreview && (
+                        <img
+                            src={influencerImagePreview}
+                            alt="Preview da imagem de referência"
+                            className="w-full h-32 object-cover rounded-lg mt-2 border border-slate-700"
+                        />
+                    )}
+                </div>
+                <button type="button" onClick={handleGenerateInfluencer} disabled={isInfluencerLoading || !influencerDescription.trim()} className="w-full flex items-center justify-center gap-2 bg-cyan-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-cyan-700 disabled:bg-slate-600 transition-all">
+                    <SparklesIcon className="w-5 h-5" /> {isInfluencerLoading ? 'Criando Personagem...' : '3. Gerar Prompt do Influenciador'}
+                </button>
+                {influencerError && <p className="text-red-400 text-sm">{influencerError}</p>}
+                {generatedInfluencerPrompt && <CharacterSheetDisplay jsonString={generatedInfluencerPrompt} onCopy={onCopy} copiedIdentifier={copiedIdentifier} />}
+            </div>
+        )}
+        {(influencerOption === 'existing' || remixNarrationOption === 'use_influencer') && (
+            <div className="space-y-4 pt-2 animate-fade-in">
+                <RadioPillGroup label="Método">
+                    <RadioPill name="existing-method" value="paste" checked={existingInfluencerMethod === 'paste'} onChange={() => setExistingInfluencerMethod('paste')} label="Colar Prompt" />
+                    <RadioPill name="existing-method" value="upload" checked={existingInfluencerMethod === 'upload'} onChange={() => setExistingInfluencerMethod('upload')} label="Subir Imagem" />
+                </RadioPillGroup>
+                {existingInfluencerMethod === 'paste' ? (
+                    <div className="space-y-2">
+                        <label htmlFor="existing-influencer" className="block text-sm font-medium text-slate-300">Cole aqui o "Character Sheet":</label>
+                        <textarea id="existing-influencer" value={existingInfluencerPrompt} onChange={(e) => setExistingInfluencerPrompt(e.target.value)} placeholder="Ex: a beautiful woman, 25yo, long pink hair, blue eyes, cyberpunk style..." className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500" />
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        <label htmlFor="influencer-img-existing" className="block text-sm font-medium text-slate-300">Suba uma imagem do seu influenciador para gerar o prompt:</label>
+                        <input id="influencer-img-existing" type="file" accept="image/*" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                                handleFileChange(file, 'influencer');
+                            }
+                        }} className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100" />
+                        {isInfluencerLoading && <p className="text-cyan-400 text-sm">Analisando imagem e criando Character Sheet...</p>}
+                        {influencerError && <p className="text-red-400 text-sm">{influencerError}</p>}
+                        {existingInfluencerPrompt && <CharacterSheetDisplay jsonString={existingInfluencerPrompt} onCopy={onCopy} copiedIdentifier={copiedIdentifier} />}
+                    </div>
+                )}
+            </div>
+        )}
+    </div>
+);
+
 const App: React.FC = () => {
     const [activeTab, setActiveTab] = useState<ActiveTab>('text');
     const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -559,185 +781,7 @@ const App: React.FC = () => {
         </button>
     );
 
-    const RadioPillGroup: React.FC<{ children: React.ReactNode; label: string }> = ({ children, label }) => (
-        <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">{label}</label>
-            <div className="flex items-center gap-2 bg-slate-800/50 border border-slate-700 rounded-lg p-1">{children}</div>
-        </div>
-    );
 
-    const RadioPill: React.FC<{ name: string; value: any; checked: boolean; onChange: (e: React.ChangeEvent<HTMLInputElement> | (() => void)) => void; label: string; }> = ({ name, value, checked, onChange, label }) => (
-        <label className={`flex-1 text-center cursor-pointer px-3 py-1.5 text-sm rounded-md transition-colors ${checked ? 'bg-slate-700 text-cyan-300' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <input type="radio" name={name} value={value} checked={checked} onChange={onChange} className="sr-only" />
-            {label}
-        </label>
-    );
-
-    // JSON Character Sheet Display Component
-    const CharacterSheetDisplay: React.FC<{ jsonString: string }> = ({ jsonString }) => {
-        const [isExpanded, setIsExpanded] = useState(false);
-
-        let parsedData: any = null;
-        let isValidJSON = false;
-        let keywords = '';
-
-        try {
-            parsedData = JSON.parse(jsonString);
-            isValidJSON = true;
-            keywords = parsedData.prompt_keywords || '';
-        } catch {
-            // Not valid JSON, treat as plain text
-            isValidJSON = false;
-        }
-
-        if (!isValidJSON) {
-            // Fallback: display as plain text
-            return (
-                <div className="bg-slate-900/70 p-3 rounded-md text-sm text-slate-300 border border-cyan-500/30 space-y-2">
-                    <div className="flex justify-between items-center">
-                        <span className="text-xs text-slate-400">Character Sheet (Texto)</span>
-                        <button
-                            onClick={() => handleCopyToClipboard(jsonString, 'character-sheet')}
-                            className="text-xs px-2 py-1 bg-cyan-600/20 text-cyan-400 rounded hover:bg-cyan-600/40 transition-colors"
-                        >
-                            {copiedIdentifier === 'character-sheet' ? '✓ Copiado' : 'Copiar'}
-                        </button>
-                    </div>
-                    <p className="whitespace-pre-wrap">{jsonString}</p>
-                </div>
-            );
-        }
-
-        return (
-            <div className="bg-slate-900/70 p-4 rounded-md text-sm text-slate-300 border border-cyan-500/30 space-y-3">
-                <div className="flex justify-between items-center">
-                    <h4 className="text-cyan-400 font-semibold flex items-center gap-2">
-                        <UserCircleIcon className="w-5 h-5" />
-                        {parsedData.character_name || 'Character Sheet'}
-                    </h4>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => handleCopyToClipboard(keywords, 'keywords')}
-                            className="text-xs px-3 py-1 bg-green-600/20 text-green-400 rounded hover:bg-green-600/40 transition-colors"
-                            title="Copiar apenas as keywords para uso rápido"
-                        >
-                            {copiedIdentifier === 'keywords' ? '✓ Keywords' : 'Copiar Keywords'}
-                        </button>
-                        <button
-                            onClick={() => handleCopyToClipboard(jsonString, 'json-full')}
-                            className="text-xs px-3 py-1 bg-cyan-600/20 text-cyan-400 rounded hover:bg-cyan-600/40 transition-colors"
-                        >
-                            {copiedIdentifier === 'json-full' ? '✓ JSON' : 'Copiar JSON'}
-                        </button>
-                    </div>
-                </div>
-
-                <div className="space-y-2 text-xs">
-                    <div>
-                        <span className="text-slate-500">Aparência:</span>
-                        <span className="ml-2">{parsedData.physical_appearance?.hair?.color}, {parsedData.physical_appearance?.face?.eyes?.color} eyes, {parsedData.physical_appearance?.body?.build}</span>
-                    </div>
-                    <div>
-                        <span className="text-slate-500">Estilo:</span>
-                        <span className="ml-2">{parsedData.style?.clothing?.primary}</span>
-                    </div>
-                </div>
-
-                <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
-                >
-                    {isExpanded ? '▼ Ver Menos' : '▶ Ver JSON Completo'}
-                </button>
-
-                {isExpanded && (
-                    <pre className="bg-slate-950/50 p-3 rounded text-xs overflow-x-auto border border-slate-700">
-                        {JSON.stringify(parsedData, null, 2)}
-                    </pre>
-                )}
-            </div>
-        );
-    };
-
-    const InfluencerStudio = useMemo(() => ({ forRemix = false }: { forRemix?: boolean }) => (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-4">
-            <h3 className="text-md font-semibold text-slate-200 flex items-center gap-2"><UserCircleIcon className="w-6 h-6 text-cyan-400" /> Estúdio de Influenciador</h3>
-            <RadioPillGroup label={forRemix ? "Tipo de Narração:" : "Usar influenciador?"}>
-                {!forRemix && <RadioPill name="influencer" value="none" checked={influencerOption === 'none'} onChange={() => setInfluencerOption('none')} label="Não quero" />}
-                {forRemix && <RadioPill name="remix-narration" value="voice_only" checked={remixNarrationOption === 'voice_only'} onChange={() => setRemixNarrationOption('voice_only')} label="Somente Voz" />}
-                <RadioPill name={forRemix ? "remix-narration" : "influencer"} value={forRemix ? "create_influencer" : "create"} checked={forRemix ? remixNarrationOption === 'create_influencer' : influencerOption === 'create'} onChange={() => forRemix ? setRemixNarrationOption('create_influencer') : setInfluencerOption('create')} label="Criar Novo" />
-                <RadioPill name={forRemix ? "remix-narration" : "influencer"} value={forRemix ? "use_influencer" : "existing"} checked={forRemix ? remixNarrationOption === 'use_influencer' : influencerOption === 'existing'} onChange={() => forRemix ? setRemixNarrationOption('use_influencer') : setInfluencerOption('existing')} label="Usar Existente" />
-            </RadioPillGroup>
-
-            {(influencerOption === 'create' || remixNarrationOption === 'create_influencer') && (
-                <div className="space-y-4 pt-2 animate-fade-in">
-                    <div className="space-y-2">
-                        <label htmlFor="influencer-desc" className="block text-sm font-medium text-slate-300">1. Descreva seu influenciador:</label>
-                        <textarea
-                            id="influencer-desc"
-                            value={influencerDescription}
-                            onChange={(e) => {
-                                e.persist?.(); // Ensure event is not pooled (React 16 compatibility)
-                                const newValue = e.target.value;
-                                setInfluencerDescription(newValue);
-                            }}
-                            placeholder="Ex: mulher jovem, cabelo rosa neon, estilo cyberpunk, jaqueta de couro preta, olhos azuis brilhantes"
-                            className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500"
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label htmlFor="influencer-img-create" className="block text-sm font-medium text-slate-300">2. (Opcional) Envie uma imagem de referência de ESTILO:</label>
-                        <input
-                            id="influencer-img-create"
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                    handleFileChange(file, 'influencer');
-                                }
-                            }}
-                            className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100"
-                        />
-                        {influencerImagePreview && (
-                            <img
-                                src={influencerImagePreview}
-                                alt="Preview da imagem de referência"
-                                className="w-full h-32 object-cover rounded-lg mt-2 border border-slate-700"
-                            />
-                        )}
-                    </div>
-                    <button type="button" onClick={handleGenerateInfluencer} disabled={isInfluencerLoading || !influencerDescription.trim()} className="w-full flex items-center justify-center gap-2 bg-cyan-600 text-white font-semibold py-2 px-4 rounded-md hover:bg-cyan-700 disabled:bg-slate-600 transition-all">
-                        <SparklesIcon className="w-5 h-5" /> {isInfluencerLoading ? 'Criando Personagem...' : '3. Gerar Prompt do Influenciador'}
-                    </button>
-                    {influencerError && <p className="text-red-400 text-sm">{influencerError}</p>}
-                    {generatedInfluencerPrompt && <CharacterSheetDisplay jsonString={generatedInfluencerPrompt} />}
-                </div>
-            )}
-            {(influencerOption === 'existing' || remixNarrationOption === 'use_influencer') && (
-                <div className="space-y-4 pt-2 animate-fade-in">
-                    <RadioPillGroup label="Método">
-                        <RadioPill name="existing-method" value="paste" checked={existingInfluencerMethod === 'paste'} onChange={() => setExistingInfluencerMethod('paste')} label="Colar Prompt" />
-                        <RadioPill name="existing-method" value="upload" checked={existingInfluencerMethod === 'upload'} onChange={() => setExistingInfluencerMethod('upload')} label="Subir Imagem" />
-                    </RadioPillGroup>
-                    {existingInfluencerMethod === 'paste' ? (
-                        <div className="space-y-2">
-                            <label htmlFor="existing-influencer" className="block text-sm font-medium text-slate-300">Cole aqui o "Character Sheet":</label>
-                            <textarea id="existing-influencer" value={existingInfluencerPrompt} onChange={(e) => setExistingInfluencerPrompt(e.target.value)} placeholder="Ex: a beautiful woman, 25yo, long pink hair, blue eyes, cyberpunk style..." className="w-full h-24 p-3 bg-slate-800 border border-slate-700 rounded-md resize-none focus:ring-2 focus:ring-cyan-500" />
-                        </div>
-                    ) : (
-                        <div className="space-y-2">
-                            <label htmlFor="influencer-img-existing" className="block text-sm font-medium text-slate-300">Suba uma imagem do seu influenciador para gerar o prompt:</label>
-                            <input id="influencer-img-existing" type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files ? e.target.files[0] : null, 'influencer')} className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100" />
-                            {isInfluencerLoading && <p className="text-cyan-400 text-sm">Analisando imagem e criando Character Sheet...</p>}
-                            {influencerError && <p className="text-red-400 text-sm">{influencerError}</p>}
-                            {existingInfluencerPrompt && <CharacterSheetDisplay jsonString={existingInfluencerPrompt} />}
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    ), [influencerOption, remixNarrationOption, influencerDescription, influencerImagePreview, isInfluencerLoading, influencerError, generatedInfluencerPrompt, existingInfluencerMethod, existingInfluencerPrompt]);
 
     const currentAIModel = AI_MODELS.find(m => m.id === targetAI);
     const currentSocialPlatform = SOCIAL_MEDIA_PLATFORMS.find(p => p.id === socialPlatform);
@@ -791,7 +835,26 @@ const App: React.FC = () => {
 
                     {activeTab === 'video' && (
                         <div className="space-y-4 animate-fade-in">
-                            <InfluencerStudio />
+                            <InfluencerStudio
+                                influencerOption={influencerOption}
+                                setInfluencerOption={setInfluencerOption}
+                                remixNarrationOption={remixNarrationOption}
+                                setRemixNarrationOption={setRemixNarrationOption}
+                                influencerDescription={influencerDescription}
+                                setInfluencerDescription={setInfluencerDescription}
+                                handleFileChange={handleFileChange}
+                                influencerImagePreview={influencerImagePreview}
+                                handleGenerateInfluencer={handleGenerateInfluencer}
+                                isInfluencerLoading={isInfluencerLoading}
+                                influencerError={influencerError}
+                                generatedInfluencerPrompt={generatedInfluencerPrompt}
+                                existingInfluencerMethod={existingInfluencerMethod}
+                                setExistingInfluencerMethod={setExistingInfluencerMethod}
+                                existingInfluencerPrompt={existingInfluencerPrompt}
+                                setExistingInfluencerPrompt={setExistingInfluencerPrompt}
+                                onCopy={handleCopyToClipboard}
+                                copiedIdentifier={copiedIdentifier}
+                            />
                             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 space-y-4">
                                 <h3 className="text-md font-semibold text-slate-200">Opções da Cena</h3>
                                 <RadioPillGroup label="Tipo de Vídeo">
@@ -889,7 +952,27 @@ const App: React.FC = () => {
                                 </div>
                                 {remixVideoFile && (
                                     <div className="space-y-4">
-                                        <InfluencerStudio forRemix={true} />
+                                        <InfluencerStudio
+                                            forRemix={true}
+                                            influencerOption={influencerOption}
+                                            setInfluencerOption={setInfluencerOption}
+                                            remixNarrationOption={remixNarrationOption}
+                                            setRemixNarrationOption={setRemixNarrationOption}
+                                            influencerDescription={influencerDescription}
+                                            setInfluencerDescription={setInfluencerDescription}
+                                            handleFileChange={handleFileChange}
+                                            influencerImagePreview={influencerImagePreview}
+                                            handleGenerateInfluencer={handleGenerateInfluencer}
+                                            isInfluencerLoading={isInfluencerLoading}
+                                            influencerError={influencerError}
+                                            generatedInfluencerPrompt={generatedInfluencerPrompt}
+                                            existingInfluencerMethod={existingInfluencerMethod}
+                                            setExistingInfluencerMethod={setExistingInfluencerMethod}
+                                            existingInfluencerPrompt={existingInfluencerPrompt}
+                                            setExistingInfluencerPrompt={setExistingInfluencerPrompt}
+                                            onCopy={handleCopyToClipboard}
+                                            copiedIdentifier={copiedIdentifier}
+                                        />
                                         <RadioPillGroup label="2. Qual o seu objetivo com este Remix?">
                                             <RadioPill name="remix-goal" value="views" checked={remixGoal === 'views'} onChange={() => setRemixGoal('views')} label="Mais Visualizações" />
                                             <RadioPill name="remix-goal" value="interaction" checked={remixGoal === 'interaction'} onChange={() => setRemixGoal('interaction')} label="Mais Interação" />
