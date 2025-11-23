@@ -130,14 +130,9 @@ const App: React.FC = () => {
         }
     };
 
-    if (isAdmin) {
-        console.log("Rendering AdminDashboard from App.tsx");
-        return (
-            <ErrorBoundary>
-                <AdminDashboard />
-            </ErrorBoundary>
-        );
-    }
+
+
+    const [showContinueUI, setShowContinueUI] = useState(false);
 
     const filteredAIModels = useMemo(() => AI_MODELS.filter(m => m.type === activeTab), [activeTab]);
     const [targetAI, setTargetAI] = useState<string>(filteredAIModels[0]?.id || '');
@@ -146,7 +141,6 @@ const App: React.FC = () => {
     const [videoDuration, setVideoDuration] = useState<number>(8);
     const [outputFormat, setOutputFormat] = useState<OutputFormat>('normal');
     const [dialogueLanguage, setDialogueLanguage] = useState<string>('sem-dialogo');
-    const [showContinueUI, setShowContinueUI] = useState(false);
     const [additionalDuration, setAdditionalDuration] = useState(8);
     const [isContinuationLoading, setIsContinuationLoading] = useState(false);
     const [videoBgImageFile, setVideoBgImageFile] = useState<File | null>(null);
@@ -634,8 +628,19 @@ const App: React.FC = () => {
     const currentAIModel = AI_MODELS.find(m => m.id === targetAI);
     const currentSocialPlatform = SOCIAL_MEDIA_PLATFORMS.find(p => p.id === socialPlatform);
 
+    if (isAdmin) {
+        console.log("Rendering AdminDashboard from App.tsx");
+        return (
+            <ErrorBoundary>
+                <AdminDashboard />
+            </ErrorBoundary>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-slate-900 text-slate-200 selection:bg-cyan-500/30 font-sans" style={{ backgroundImage: 'url(/bg-cyberpunk.png)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}>
+        <div className="min-h-screen bg-slate-900 text-slate-100 font-sans selection:bg-blue-500/30">
+
+            {/* Background Image */}
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-[2px] z-0"></div>
             <div className="fixed inset-0 bg-gradient-to-b from-slate-900/80 via-transparent to-slate-900/80 z-0 pointer-events-none"></div>
 
