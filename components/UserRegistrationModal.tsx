@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserData, saveUserData } from '../lib/userUtils';
+// import { UserData, saveUserData } from '../lib/userUtils'; // Unused imports removed for build
 import { CheckIcon, LockIcon } from './icons';
 
 interface UserRegistrationModalProps {

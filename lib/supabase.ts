@@ -50,7 +50,7 @@ export const registerLead = async (name: string, whatsapp: string, email: string
     return true;
 };
 
-export const checkLeadAccess = async (whatsapp: string, feature: string): Promise<{ allowed: boolean; limitReached: boolean }> => {
+export const checkLeadAccess = async (whatsapp: string, _feature: string): Promise<{ allowed: boolean; limitReached: boolean }> => {
     if (!supabase) {
         // Fallback to localStorage logic implemented in userUtils (or duplicated here if we want to unify)
         // For now, we'll assume the caller handles the fallback or we just return true for dev
