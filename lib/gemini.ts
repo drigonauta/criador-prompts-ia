@@ -45,7 +45,7 @@ export const generatePromptFromText = async (topic: string, targetAI: string): P
         O prompt final deve ser apenas o prompt gerado, pronto para ser copiado e colado, sem nenhuma explicação ou texto adicional.`;
 
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { role: 'user', parts: [{ text: `Tópico do usuário: "${topic}"` }] },
             config: {
                 systemInstruction: systemInstruction,
@@ -109,7 +109,7 @@ export const generatePromptFromImage = async (imageFile: File | null, instructio
         parts.push({ text: textPrompt });
 
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { role: 'user', parts: parts },
         });
 
@@ -130,7 +130,7 @@ export const generateImageEditPrompt = async (imageFile: File, instruction: stri
         O resultado deve ser apenas o prompt de texto, sem nenhuma explicação.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: {
                 role: 'user',
                 parts: [
@@ -283,7 +283,7 @@ export const generatePromptFromVideoIdea = async (idea: string, targetAI: string
         }
 
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { role: 'user', parts: parts },
             config: config,
         });
@@ -331,7 +331,7 @@ Cada objeto no array deve ter a seguinte estrutura:
 - "hashtags" (string): Uma string única contendo as 10 melhores hashtags, pesquisadas e otimizadas para máxima visibilidade e alcance no nicho do vídeo dentro de ${platformName}. Inclua hashtags de cauda longa e de tendência. As hashtags devem ser separadas por espaços e começar com '#'.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { role: 'user', parts: [{ text: `Gere 3 variações de legenda para a ideia de vídeo: "${videoIdea}", otimizadas para ${platformName}` }] },
             config: {
                 systemInstruction,
@@ -443,7 +443,7 @@ REGRAS CRÍTICAS:
         }
 
         const response: GenerateContentResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { role: 'user', parts: parts },
             config: {
                 systemInstruction: systemInstruction,
@@ -515,7 +515,7 @@ Sua tarefa:
 Sua resposta DEVE ser um objeto JSON com a seguinte estrutura: { "roteiro_narracao": "...", "instrucoes_remix": "..." }. Não inclua nenhuma explicação ou texto adicional.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: {
                 role: 'user',
                 parts: [
@@ -588,7 +588,7 @@ Sua resposta DEVE ser um objeto JSON com a seguinte estrutura:
         const imageParts = await Promise.all(screenshots.map(fileToGenerativePart));
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { role: 'user', parts: [...imageParts, { text: `Analise este perfil para a plataforma ${platformName} com o objetivo de ${goal}.` }] },
             config: {
                 systemInstruction,
@@ -637,7 +637,7 @@ Sua resposta DEVE ser um objeto JSON com a seguinte estrutura:
   - "roteiro_sugerido" (string): Um breve roteiro ou passo a passo para criar o conteúdo.`;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-1.5-flash',
             contents: { role: 'user', parts: [{ text: `Crie um plano de ação para este perfil no ${platformName}.` }] },
             config: {
                 systemInstruction,
